@@ -5,7 +5,7 @@ import { pickBackend, type Backend } from './backend';
 import {
   BET_LEVELS, BUY_COST, CLIMB_OPTIONS, COLS, ROWS, EMBER_MAX, FEATURES, MAX_WIN, PAYTABLE, SYMBOL_NAMES, SYM, scatterPay,
 } from '../engine/config';
-import type { BaseSpinResult, FreeSpinResult, Grid, SpinSequence } from '../engine/engine';
+import type { BaseSpinResult, Cell, FreeSpinResult, Grid, SpinSequence } from '../engine/engine';
 
 // ------------------------------------------------------------------ setup
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -26,13 +26,37 @@ const SND_OFF = `<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="
 const FLAME = `<svg viewBox="0 0 24 24"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-6 1-9z" fill="#ff8a2a" stroke="#ffcf6a" stroke-width="1.2"/></svg>`;
 
 function mountainsSvg() {
+  // three ranges with snow caps, a hilltop stupa and a prayer-flag line, all original vector art
   return `<svg class="mountains" viewBox="0 0 400 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-    <path d="M0 120 L40 90 L70 104 L120 50 L150 78 L190 40 L230 84 L270 60 L310 92 L350 66 L400 96 V200 H0Z" fill="#3a2a6a" opacity=".75"/>
-    <path d="M120 50 L131 63 L124 61 L118 66 L112 58Z M190 40 L203 55 L196 53 L190 58 L183 51 L178 52Z" fill="#cfd6ff" opacity=".3"/>
-    <path d="M0 150 L50 118 L90 136 L150 86 L180 108 L210 70 L250 112 L300 92 L350 124 L400 110 V200 H0Z" fill="#241a4e"/>
-    <path d="M210 70 L222 85 L215 83 L209 89 L203 81 L196 86Z M150 86 L160 98 L153 96 L148 101 L142 93Z" fill="#e8ecff" opacity=".4"/>
-    <path d="M0 176 L60 150 L120 168 L200 140 L270 166 L340 148 L400 164 V200 H0Z" fill="#140f33"/>
+    <defs>
+      <linearGradient id="mFar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6a4a9a"/><stop offset="1" stop-color="#3a2a6a"/></linearGradient>
+      <linearGradient id="mMid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b2a72"/><stop offset="1" stop-color="#1e1646"/></linearGradient>
+      <linearGradient id="mNear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d1542"/><stop offset="1" stop-color="#0d0a26"/></linearGradient>
+      <linearGradient id="mSnow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#c9c4ff" stop-opacity=".2"/></linearGradient>
+    </defs>
+    <path d="M0 112 L30 96 L58 104 L92 70 L118 84 L150 44 L172 60 L196 30 L222 58 L246 48 L276 80 L306 62 L336 88 L366 64 L400 84 V200 H0Z" fill="url(#mFar)" opacity=".8"/>
+    <path d="M150 44 L161 57 L155 56 L150 61 L145 55 L139 58Z M196 30 L208 45 L201 43 L196 49 L190 42 L185 45Z M246 48 L255 58 L249 57 L244 61 L240 56Z M366 64 L374 73 L369 72 L364 76 L360 71Z" fill="url(#mSnow)" opacity=".75"/>
+    <path d="M0 146 L44 116 L84 130 L136 88 L168 106 L204 74 L246 108 L292 90 L340 120 L400 104 V200 H0Z" fill="url(#mMid)"/>
+    <path d="M136 88 L147 100 L141 99 L136 104 L131 97 L125 101Z M204 74 L216 88 L209 86 L203 92 L197 84 L191 89Z M292 90 L301 99 L295 98 L290 102 L286 97Z" fill="url(#mSnow)" opacity=".55"/>
+    <path d="M0 178 L52 152 L104 166 L150 150 L196 158 L240 140 L290 162 L344 146 L400 160 V200 H0Z" fill="url(#mNear)"/>
+    <g fill="#0d0a26"><path d="M236 141 h8 v-3 h-8z"/><path d="M234 141 q6 -10 12 0z"/><rect x="239" y="128" width="2" height="5"/><path d="M237.5 131 h5 l-2.5 -4z"/></g>
+    <path d="M240 128 Q262 134 286 150" stroke="#2a2255" stroke-width=".6" fill="none"/>
+    ${[0, 1, 2, 3, 4, 5, 6, 7].map(i => { const x = 244 + i * 5.2, y = 129.6 + i * 2.4 + i * i * .1; return `<path d="M${x} ${y} l3 .6 l-.6 3.2 l-3 -.6z" fill="${['#3d7bd9', '#f4f4f4', '#d9473d', '#3dae5a', '#f2c230'][i % 5]}" opacity=".85"/>`; }).join('')}
   </svg>`;
+}
+
+const ORNAMENT = `<svg viewBox="0 0 26 26"><path d="M13 1 L25 13 L13 25 L1 13Z" fill="#e6a73c" stroke="#3a1806" stroke-width="1.5"/><path d="M13 6 L20 13 L13 20 L6 13Z" fill="#7d1e0c" stroke="#fff1b8" stroke-width="1"/><circle cx="13" cy="13" r="2.6" fill="#fff1b8"/></svg>`;
+
+function flagsSvg() {
+  const colors = ['#3d7bd9', '#f4f4f4', '#d9473d', '#3dae5a', '#f2c230'];
+  const n = 15;
+  let flags = '';
+  for (let i = 0; i < n; i++) {
+    const x = 6 + (i * 288) / (n - 1);
+    const y = 4 + Math.sin((i / (n - 1)) * Math.PI) * 9;
+    flags += `<path class="f" style="animation-delay:${(-i * 0.37).toFixed(2)}s" d="M${x - 7} ${y} L${x + 7} ${y + 1} L${x + 6} ${y + 14} L${x - 8} ${y + 13}Z" fill="${colors[i % 5]}" stroke="rgba(0,0,0,.35)" stroke-width=".6"/>`;
+  }
+  return `<svg viewBox="0 0 300 26" preserveAspectRatio="none" aria-hidden="true"><path d="M-2 3 Q150 26 302 3" stroke="#e6c08a" stroke-width="1" fill="none"/>${flags}</svg>`;
 }
 
 function floaters() {
@@ -45,7 +69,7 @@ function floaters() {
 }
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <div class="sky"><div class="stars"></div><div class="aurora"></div>${mountainsSvg()}<div class="floaters">${floaters()}</div></div>
+  <div class="sky"><div class="stars"></div><div class="stars s2"></div><div class="moon"></div><div class="aurora"></div>${mountainsSvg()}<div class="mist m1"></div><div class="mist m2"></div><div class="floaters">${floaters()}</div></div>
   <div class="shell" id="shell">
     <header class="top" id="top">
       <div class="logo" aria-label="Lantern Summit"><span class="l1">Lantern</span><span class="l2">Summit</span></div>
@@ -63,7 +87,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div><b id="fsWon">0.00</b><span>won</span></div>
       </div>
     </div>
-    <div class="board-area" id="boardArea"><div class="board-frame" id="frame"><div class="board" id="board"></div><div class="board-fx" id="fx"></div></div></div>
+    <div class="board-area" id="boardArea"><div class="board-frame" id="frame"><div class="flags">${flagsSvg()}</div>${['tl', 'tr', 'bl', 'br'].map(k => `<span class="orn ${k}">${ORNAMENT}</span>`).join('')}<div class="board" id="board"></div><div class="board-fx" id="fx"></div></div></div>
     <div class="winline" id="winline">Land 8 or more of a kind anywhere to win</div>
     <footer class="controls" id="controls">
       <div class="meters">
@@ -86,7 +110,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     </footer>
   </div>
   <div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
-  <div class="bigwin hidden" id="bigwin"><div class="inner"><div class="title" id="bwTitle">BIG WIN</div><div class="amount" id="bwAmount">0.00</div><div class="hint">TAP TO CONTINUE</div></div></div>
+  <div class="bigwin hidden" id="bigwin"><div class="rays"></div><div class="confettis" id="confetti"></div><div class="inner"><div class="halo"></div><div class="title" id="bwTitle">BIG WIN</div><div class="amount" id="bwAmount">0.00</div><div class="hint">TAP TO CONTINUE</div></div></div>
 `;
 installSymbolDefs();
 
@@ -116,13 +140,13 @@ const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms * speed()))
 
 function anim(el: Element, kf: Keyframe[], duration: number, delay = 0, easing = 'ease-out'): Promise<unknown> {
   const s = speed();
-  return el.animate(kf, { duration: duration * s, delay: delay * s, easing, fill: 'forwards' }).finished.catch(() => undefined);
+  return el.animate(kf, { duration: duration * s, delay: delay * s, easing, fill: 'both' }).finished.catch(() => undefined);
 }
 
 // ------------------------------------------------------------------ layout
 function layout() {
   const area = $('boardArea');
-  const availH = area.clientHeight - 12; // frame padding
+  const availH = area.clientHeight - 30; // frame padding + flag garland
   const availW = area.clientWidth - 12;
   cell = Math.max(32, Math.floor(Math.min(availW / COLS, availH / ROWS)));
   document.documentElement.style.setProperty('--cell', cell + 'px');
@@ -190,41 +214,137 @@ function toast(msg: string, ms = 2200) {
   setTimeout(() => t.remove(), ms);
 }
 
-// ------------------------------------------------------------------ board animation
-async function dropIn(grid: Grid) {
-  // old symbols fall out
-  const old = elems.flat();
-  if (old.length) {
-    await Promise.all(old.map((el, i) => {
-      const c = Math.floor(i / ROWS);
-      return anim(el, [{ transform: el.style.transform }, { transform: `${el.style.transform} translateY(${(ROWS + 1) * cell}px)`, opacity: 0.2 }], 240, c * 35, 'ease-in');
-    }));
-    old.forEach(el => el.remove());
-  }
+// ------------------------------------------------------------------ reels
+// A spin is shown in two halves so the outcome is never on screen before the reels stop:
+//   startReels(): the old symbols kick up and drop away, and every column turns into a
+//                 fast, motion-blurred strip of random filler symbols (purely cosmetic).
+//   stop(grid):   once the result is known, columns stop left to right and the result
+//                 symbols slide in from above with a small bounce.
+const REEL_STEP_MS = 42; // ms per symbol while a reel runs at full speed
+const LOOP_ROWS = 8; // length of the repeating filler pattern
+const LAND_MS = 620;
+const FILLER_POOL = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 8, SYM.SCATTER];
+
+const ty = (rows: number) => `translateY(${rows * cell}px)`;
+
+function ghostCell(s: number, row: number): HTMLDivElement {
+  const d = document.createElement('div');
+  d.className = 'cell ghost';
+  d.innerHTML = symbolUse(s);
+  d.style.transform = ty(row);
+  return d;
+}
+const randomFiller = () => FILLER_POOL[Math.floor(Math.random() * FILLER_POOL.length)];
+
+interface ReelSpin { stop(grid: Grid): Promise<void> }
+
+function startReels(): ReelSpin {
+  const t0 = performance.now();
+  const L = LOOP_ROWS + ROWS;
+  const old = elems;
   elems = [];
-  currentGrid = grid;
-  const landings: Promise<unknown>[] = [];
+  currentGrid = null;
+  $('frame').classList.add('spinning');
+  const strips: HTMLDivElement[] = [];
+  const running: Animation[][] = [];
   for (let c = 0; c < COLS; c++) {
-    const col: HTMLDivElement[] = [];
-    for (let r = 0; r < ROWS; r++) {
-      const el = makeCell(grid[c][r].s, grid[c][r].m);
+    const strip = document.createElement('div');
+    strip.className = 'strip';
+    strip.style.left = c * cell + 'px';
+    const pattern = Array.from({ length: LOOP_ROWS }, randomFiller);
+    for (let i = 0; i < L; i++) strip.appendChild(ghostCell(pattern[i % LOOP_ROWS], i));
+    (old[c] ?? []).forEach((el, r) => {
+      el.getAnimations().forEach(a => a.cancel());
+      el.classList.remove('hit', 'scat', 'lit');
+      el.style.transform = ty(L + r);
+      strip.appendChild(el);
+    });
+    board.appendChild(strip);
+    strips.push(strip);
+    const s = speed();
+    // spin-up: a small lift, then accelerate down to full reel speed
+    const up = strip.animate([{ transform: ty(-L) }, { transform: ty(-L + ROWS) }],
+      { duration: 380 * s, delay: c * 55 * s, easing: 'cubic-bezier(.4,-0.3,.7,.45)', fill: 'both' });
+    running.push([up]);
+    up.finished.then(() => {
+      if (!strip.isConnected) return;
+      strip.classList.add('blur');
+      running[c].push(strip.animate([{ transform: ty(-L + ROWS) }, { transform: ty(-L + ROWS + LOOP_ROWS) }],
+        { duration: LOOP_ROWS * REEL_STEP_MS * Math.max(0.6, s), iterations: Infinity }));
+    }).catch(() => undefined);
+  }
+
+  function landColumn(c: number, col: Cell[], tease: boolean): Promise<void> {
+    running[c].forEach(a => a.cancel());
+    strips[c].remove();
+    const K = ROWS;
+    // fillers that are on screen when the result arrives, plus one riding above the result
+    const fill = document.createElement('div');
+    fill.className = 'strip blur';
+    fill.style.left = c * cell + 'px';
+    for (let r = 0; r < ROWS; r++) fill.appendChild(ghostCell(randomFiller(), r));
+    fill.appendChild(ghostCell(randomFiller(), -K - 1));
+    board.appendChild(fill);
+    const kf = (at: (d: number) => string): Keyframe[] => [
+      { transform: at(-K), easing: 'cubic-bezier(.25,.6,.5,1)' },
+      { transform: at(0.22), offset: 0.78, easing: 'cubic-bezier(.4,0,.5,1)' },
+      { transform: at(0) },
+    ];
+    const dur = (tease ? LAND_MS * 1.5 : LAND_MS) * speed();
+    const opts: KeyframeAnimationOptions = { duration: dur, fill: 'both' };
+    const anims: Promise<unknown>[] = [fill.animate(kf(d => ty(K + d)), opts).finished];
+    const cells: HTMLDivElement[] = [];
+    col.forEach((cd, r) => {
+      const el = makeCell(cd.s, cd.m);
       el.style.transform = pos(c, r);
       board.appendChild(el);
-      col.push(el);
-      const delay = c * 70 + (ROWS - 1 - r) * 25;
-      landings.push(anim(el, [{ transform: pos(c, r - ROWS - 1) }, { transform: pos(c, r) }], 380, delay, 'cubic-bezier(.25,1.25,.5,1)'));
-    }
-    elems.push(col);
-    setTimeout(() => sound.land(c), (c * 70 + 300) * speed());
+      cells.push(el);
+      anims.push(el.animate(kf(d => pos(c, r + d)), opts).finished);
+    });
+    elems[c] = cells;
+    setTimeout(() => {
+      sound.land(c);
+      cells.forEach(el => { if (el.dataset.s === String(SYM.SCATTER) || el.dataset.s === String(SYM.LANTERN)) el.classList.add('thud'); });
+    }, dur * 0.72);
+    return Promise.all(anims).catch(() => undefined).then(() => { fill.remove(); });
   }
-  await Promise.all(landings);
+
+  return {
+    async stop(grid: Grid) {
+      const minSpin = 520 * speed();
+      const elapsed = performance.now() - t0;
+      if (elapsed < minSpin) await new Promise(r => setTimeout(r, minSpin - elapsed));
+      const landings: Promise<void>[] = [];
+      let scatters = 0;
+      for (let c = 0; c < COLS; c++) {
+        const tease = scatters >= 3 && !hurry;
+        if (tease) {
+          $('frame').classList.add('tease');
+          strips[c].classList.add('tease');
+          sound.tease();
+        }
+        if (c > 0) await wait(tease ? 750 : 130);
+        landings.push(landColumn(c, grid[c], tease));
+        scatters += grid[c].filter(x => x.s === SYM.SCATTER).length;
+      }
+      await Promise.all(landings);
+      $('frame').classList.remove('spinning', 'tease');
+      currentGrid = grid;
+    },
+  };
 }
 
+// ------------------------------------------------------------------ board animation
 function sparks(c: number, r: number, n = 5) {
   const cx = (c + 0.5) * cell, cy = (r + 0.5) * cell;
+  const ring = document.createElement('div');
+  ring.className = 'burst';
+  ring.style.left = cx + 'px'; ring.style.top = cy + 'px';
+  fx.appendChild(ring);
+  anim(ring, [{ transform: 'scale(.3)', opacity: 1 }, { transform: 'scale(1.5)', opacity: 0 }], 420, 0, 'ease-out').then(() => ring.remove());
   for (let i = 0; i < n; i++) {
     const s = document.createElement('div');
-    s.className = 'spark';
+    s.className = i % 2 ? 'spark star' : 'spark';
     s.style.left = cx + 'px'; s.style.top = cy + 'px';
     fx.appendChild(s);
     const a = Math.random() * Math.PI * 2, d = cell * (0.4 + Math.random() * 0.6);
@@ -260,6 +380,7 @@ async function playTumbles(seq: SpinSequence, betAmt: number, onStepWin: (runnin
     const removeSet = new Set<number>();
     for (const w of step.wins) for (const [c, r] of w.positions) { removeSet.add(c * ROWS + r); elems[c][r].classList.add('hit'); }
     sound.win(i);
+    if (step.stepWin >= 5) { const f = $('frame'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
     running += step.stepWin * betAmt;
     onStepWin(running);
     const names = step.wins.map(w => `${w.count} × ${SYMBOL_NAMES[w.symbol]}&nbsp;<b>${fmt(w.pay * betAmt)}</b>`).join('&nbsp;&nbsp;·&nbsp;&nbsp;');
@@ -341,12 +462,26 @@ function bigWinTier(x: number) {
   return '';
 }
 
+/** Falling coins and little lanterns behind the big-win counter (CSS animated, transform only). */
+function fillConfetti(n: number) {
+  let h = '';
+  for (let i = 0; i < n; i++) {
+    const lantern = i % 3 === 0;
+    const size = lantern ? 22 + Math.random() * 16 : 12 + Math.random() * 10;
+    const style = `left:${(Math.random() * 100).toFixed(1)}%;width:${size.toFixed(0)}px;height:${size.toFixed(0)}px;--d:${(2.2 + Math.random() * 2.4).toFixed(2)}s;--delay:${(-Math.random() * 4).toFixed(2)}s;--x:${((Math.random() - .5) * 120).toFixed(0)}px;--r:${((Math.random() - .5) * 720).toFixed(0)}deg`;
+    h += lantern ? `<div class="confetti" style="${style}">${symbolUse(SYM.LANTERN)}</div>` : `<div class="confetti coin" style="${style}"></div>`;
+  }
+  $('confetti').innerHTML = h;
+}
+
 function showBigWin(amount: number, xBet: number): Promise<void> {
   const tier = bigWinTier(xBet);
   if (!tier) return Promise.resolve();
   return new Promise(res => {
     const box = $('bigwin');
     $('bwTitle').textContent = tier;
+    $('bwTitle').className = 'title ' + (xBet >= 100 ? 'tier-3' : xBet >= 50 ? 'tier-2' : '');
+    fillConfetti(xBet >= 100 ? 34 : xBet >= 50 ? 26 : 18);
     box.classList.remove('hidden');
     sound.bigWin();
     const dur = (autoLeft > 0 || turbo ? 1800 : 3200);
@@ -358,7 +493,7 @@ function showBigWin(amount: number, xBet: number): Promise<void> {
       if (p < 1 && !done) requestAnimationFrame(tick); else $('bwAmount').textContent = fmt(amount);
     };
     requestAnimationFrame(tick);
-    const close = () => { if (done) return; done = true; box.classList.add('hidden'); box.removeEventListener('click', close); res(); };
+    const close = () => { if (done) return; done = true; box.classList.add('hidden'); $('confetti').innerHTML = ''; box.removeEventListener('click', close); res(); };
     box.addEventListener('click', close);
     setTimeout(close, dur + (autoLeft > 0 ? 800 : 2200));
   });
@@ -373,15 +508,19 @@ async function doSpin() {
   sound.unlock(); sound.spin();
   setWin(0);
   setLine('Good luck!');
+  const prevGrid = currentGrid;
+  const reels = startReels();
+  setBalance(balance - bet()); // show the stake leaving; real balance arrives after animation
   let res: BaseSpinResult;
   try {
     res = await backend.spin(bet());
   } catch (e) {
+    if (prevGrid) await reels.stop(prevGrid);
+    setBalance(balance + bet());
     busy = false; refreshButtons(); toast((e as Error).message); return;
   }
-  setBalance(balance - bet()); // show the stake leaving; real balance arrives after animation
   spinsPlayed++; totalBet += bet();
-  await dropIn(res.seq.grid);
+  await reels.stop(res.seq.grid);
   await playTumbles(res.seq, res.bet, run => setWin(run));
 
   if (res.seq.tumbleWin > 0 && (res.lanternSum > 0 || res.emberBoost > 0)) {
@@ -485,13 +624,21 @@ async function runFreeSpins(betAmt: number, triggerWin: number) {
   for (;;) {
     hurry = false;
     sound.spin();
-    const r = await withRetry(() => backend.freeSpin());
+    const prevGrid = currentGrid;
+    const reels = startReels();
+    let r: FreeSpinResult;
+    try {
+      r = await withRetry(() => backend.freeSpin());
+    } catch (e) {
+      if (prevGrid) void reels.stop(prevGrid);
+      throw e;
+    }
     last = r;
     setFs(r.remaining + 1, r.multBefore, r.roundTotal - triggerWin - r.win);
     $('fsLeft').textContent = String(r.remaining - (r.retriggered ? 5 : 0));
     setWin(0);
     setLine(`Free spin ${r.played}`);
-    await dropIn(r.seq.grid);
+    await reels.stop(r.seq.grid);
     await playTumbles(r.seq, r.bet, run => setWin(run));
     if (r.seq.tumbleWin > 0) {
       if (r.lanternSum > 0) {
@@ -702,7 +849,7 @@ async function start() {
       [{ s: 1 }, { s: 5 }, { s: 3 }, { s: 6 }, { s: 10, m: 25 }],
       [{ s: 0 }, { s: 2 }, { s: 8 }, { s: 4 }, { s: 6 }],
     ];
-    void dropIn(demo);
+    void startReels().stop(demo);
   });
 }
 void start();
