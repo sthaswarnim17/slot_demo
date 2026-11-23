@@ -1,7 +1,7 @@
 import {
   BASE_MODE, CLIMB_OPTIONS, COLS, ROWS, MIN_CLUSTER, PAYING_SYMBOLS, PAYTABLE, SYM,
   scatterPay, FS_TRIGGER, FS_RETRIGGER, FS_RETRIGGER_SPINS, MAX_WIN,
-  EMBER_MAX, EMBER_BOOST_VALUES, BUY_COST, EMBER_BOOST_WEIGHTS,
+  EMBER_MAX, EMBER_BOOST_VALUES, BUY_COST, EMBER_BOOST_WEIGHTS, BET_LEVELS, FEATURES,
   type ClimbOption, type ReelMode,
 } from './config';
 import type { Rng } from './rng';
@@ -135,6 +135,17 @@ export function playSequence(rng: Rng, mode: ReelMode, initial?: Grid): SpinSequ
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
+/**
+ * Rejects anything that is not one of the configured bet levels. `NaN`, negatives, Infinity,
+ * strings and arbitrary amounts used to slip past the old `bet <= 0 || bet > balance` check
+ * (NaN fails every comparison), which could corrupt the balance or mint credits.
+ */
+export function assertValidBet(bet: unknown, levels: readonly number[] = BET_LEVELS): asserts bet is number {
+  if (typeof bet !== 'number' || !Number.isFinite(bet) || bet <= 0 || !levels.includes(bet)) {
+    throw new Error('Invalid bet');
+  }
+}
+
 // ---------------------------------------------------------------- session
 
 export interface BaseSpinResult {
@@ -201,7 +212,10 @@ export class GameSession {
     balance: number,
     private climbs: ClimbOption[] = CLIMB_OPTIONS,
     private baseMode: ReelMode = BASE_MODE,
+    /** Allowed stakes. Defaults to the configured bet levels. */
+    private betLevels: readonly number[] = BET_LEVELS,
   ) {
+    if (!Number.isFinite(balance) || balance < 0) throw new Error('Invalid starting balance');
     this.state = { balance, ember: 0, emberCharged: false, awaitingClimb: false, fs: null, pendingBet: 0, pendingTriggerWin: 0 };
   }
 
@@ -210,7 +224,8 @@ export class GameSession {
   spin(bet: number): BaseSpinResult {
     const st = this.state;
     if (this.busy) throw new Error('Free spins in progress');
-    if (bet <= 0 || bet > st.balance + 1e-9) throw new Error('Insufficient demo credits');
+    assertValidBet(bet, this.betLevels);
+    if (bet > st.balance + 1e-9) throw new Error('Insufficient demo credits');
     st.balance = round2(st.balance - bet);
 
     const seq = playSequence(this.rng, this.baseMode);
@@ -254,6 +269,7 @@ export class GameSession {
   chooseClimb(option: number): FreeSpinsState {
     const st = this.state;
     if (!st.awaitingClimb) throw new Error('No free spins to start');
+    if (!Number.isInteger(option) || option < 0 || option >= this.climbs.length) throw new Error('Unknown option');
     const o = this.climbs[option];
     if (!o) throw new Error('Unknown option');
     st.awaitingClimb = false;
@@ -296,7 +312,9 @@ export class GameSession {
   /** Bonus buy: pay BUY_COST x bet to go straight to the climb choice. */
   buyFreeSpins(bet: number): { cost: number; balance: number } {
     const st = this.state;
+    if (!FEATURES.bonusBuy) throw new Error('Bonus buy is not available');
     if (this.busy) throw new Error('Free spins in progress');
+    assertValidBet(bet, this.betLevels);
     const cost = round2(bet * BUY_COST);
     if (cost > st.balance + 1e-9) throw new Error('Insufficient demo credits');
     st.balance = round2(st.balance - cost);
@@ -306,6 +324,13 @@ export class GameSession {
     return { cost, balance: st.balance };
   }
 
-  /** Demo top-up so a showcase never runs dry. */
-  topUp(amount: number) { this.state.balance = round2(this.state.balance + amount); }
+  /**
+   * Demo reset so a showcase never runs dry. Sets the balance to `amount` (it never stacks),
+   * and is refused while a free-spin round is pending or running.
+   */
+  topUp(amount: number) {
+    if (this.busy) throw new Error('Finish the free spins first');
+    if (!Number.isFinite(amount) || amount < 0) throw new Error('Invalid amount');
+    this.state.balance = round2(amount);
+  }
 }
