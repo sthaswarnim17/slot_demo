@@ -24,7 +24,8 @@ All art is vector drawn in code and all sound is synthesized in code, so there a
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173 (use your phone on the same Wi-Fi via the printed network URL)
+npm run dev          # http://localhost:5173
+npm run dev:lan      # same, also reachable from your phone on the same (trusted) Wi-Fi
 npm run build        # static site in dist/
 npm run build:single # one self-contained HTML file in dist-single/index.html
 ```
@@ -39,6 +40,8 @@ open "http://localhost:5173/?server=http://localhost:8787"
 ```
 
 The server owns the RNG and the balance; the client only animates results. Endpoints: `POST /session`, `/spin`, `/buy`, `/climb`, `/free-spin`, `/top-up`, `GET /health`.
+
+The server listens on 127.0.0.1 and only accepts browser calls from `ALLOWED_ORIGINS` (default: the local Vite dev and preview servers). The page only accepts `?server=` URLs on localhost, its own origin, or origins listed in `VITE_GAME_SERVERS` at build time. See [SECURITY.md](SECURITY.md).
 
 ### Math tools
 
@@ -68,11 +71,15 @@ npx cap open ios       # build in Xcode (needs a Mac and an Apple developer acco
 
 ```
 src/engine/   config.ts (paytable, weights, features)  engine.ts (grid, tumbles, session)  rng.ts
-src/game/     main.ts (UI + animation)  symbols.ts (vector art)  audio.ts (synth sound)  backend.ts (local or server)
+src/game/     main.ts (UI + animation)  symbols.ts (vector art)  audio.ts (synth sound)  backend.ts (local or server)  validate.ts (server response checks)
 server/       server.ts (authoritative demo game server)
 sim/          simulate.ts  calibrate.ts  selftest.ts
 docs/         math-report.md
 ```
+
+## Security
+
+See [SECURITY.md](SECURITY.md). In short: the public demo runs in the browser, so its credits can be edited by the player; that is fine for free play. Real stakes need server-authoritative outcomes and a real wallet.
 
 ## Before a real-money release
 

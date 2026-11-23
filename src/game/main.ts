@@ -11,9 +11,12 @@ import type { BaseSpinResult, FreeSpinResult, Grid, SpinSequence } from '../engi
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtX = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
+/** Escapes text for the few places that still build HTML strings. */
+const esc = (v: unknown) => String(v).replace(/[&<>"']/g, ch => `&#${ch.charCodeAt(0)};`);
 
 const sound = new Sound();
-const backend: Backend = pickBackend();
+const picked = pickBackend();
+const backend: Backend = picked.backend;
 
 const PEAK_SVG = (h: number) => `<svg class="peak" viewBox="0 0 64 48"><path d="M2 46 L${20 - h} ${30 - h * 2} L28 ${36 - h} L${38} ${22 - h * 3} L62 46Z" fill="#3b3f7a" stroke="#bfefff" stroke-width="1.5"/><path d="M${38} ${22 - h * 3} L${33} ${30 - h * 2} L${36} ${29 - h * 2} L${38} ${32 - h * 2} L${41} ${29 - h * 2} L${44} ${30 - h * 2}Z" fill="#fff"/></svg>`;
 
@@ -139,7 +142,13 @@ function placeAll() {
 function makeCell(s: number, m?: number): HTMLDivElement {
   const d = document.createElement('div');
   d.className = 'cell';
-  d.innerHTML = symbolUse(s) + (s === SYM.LANTERN ? `<span class="mult">x${m}</span>` : '');
+  d.innerHTML = symbolUse(s);
+  if (s === SYM.LANTERN) {
+    const tag = document.createElement('span');
+    tag.className = 'mult';
+    tag.textContent = `x${m ?? ''}`;
+    d.appendChild(tag);
+  }
   d.dataset.s = String(s);
   return d;
 }
@@ -236,7 +245,8 @@ function floatText(text: string, x: number, y: number, cls = '', dur = 1100) {
 async function banner(title: string, sub = '', ms = 1400) {
   const b = document.createElement('div');
   b.className = 'banner';
-  b.innerHTML = `${title}${sub ? `<small>${sub}</small>` : ''}`;
+  b.textContent = title;
+  if (sub) { const small = document.createElement('small'); small.textContent = sub; b.appendChild(small); }
   fx.appendChild(b);
   await anim(b, [{ opacity: 0, transform: 'translate(-50%,-50%) scale(.4)' }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1.08)', offset: 0.25 }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0.8 }, { opacity: 0, transform: 'translate(-50%,-50%) scale(1.2)' }], ms);
   b.remove();
@@ -457,7 +467,7 @@ function chooseClimb(): Promise<number> {
 
 async function runFreeSpins(betAmt: number, triggerWin: number) {
   const option = await chooseClimb();
-  let fs = await backend.chooseClimb(option);
+  let fs = await withRetry(() => backend.chooseClimb(option));
   busy = true; hurry = false;
   document.body.classList.add('fs-mode');
   $('ember').classList.add('hidden');
@@ -475,7 +485,7 @@ async function runFreeSpins(betAmt: number, triggerWin: number) {
   for (;;) {
     hurry = false;
     sound.spin();
-    const r = await backend.freeSpin();
+    const r = await withRetry(() => backend.freeSpin());
     last = r;
     setFs(r.remaining + 1, r.multBefore, r.roundTotal - triggerWin - r.win);
     $('fsLeft').textContent = String(r.remaining - (r.retriggered ? 5 : 0));
@@ -529,6 +539,25 @@ async function runFreeSpins(betAmt: number, triggerWin: number) {
   setWin(total);
   busy = false;
   refreshButtons();
+}
+
+/**
+ * Retries a feature call a few times (e.g. a dropped connection in server mode) so a free-spin
+ * round is not silently abandoned. After that it stops and tells the player to reload; the
+ * server keeps the round, so nothing is lost.
+ */
+async function withRetry<T>(fn: () => Promise<T>, tries = 3): Promise<T> {
+  for (let i = 1; ; i++) {
+    try { return await fn(); } catch (e) {
+      if (i >= tries) {
+        autoLeft = 0;
+        openModal(`<h2>Connection problem</h2><p class="sub">${esc((e as Error).message)}. Reload the page to continue.</p>`, false);
+        throw e;
+      }
+      toast(`${(e as Error).message}. Retrying...`);
+      await new Promise(r => setTimeout(r, 1000 * i));
+    }
+  }
 }
 
 function continueAuto() {
@@ -589,7 +618,7 @@ function menu(tab: 'rules' | 'history' | 'settings' = 'rules') {
       <p>This is a demo with play credits only. Credits have no cash value and cannot be bought, won or withdrawn.</p>`;
   } else if (tab === 'history') {
     body = history.length
-      ? `<table class="hist"><tr><th>TIME</th><th>TYPE</th><th>BET</th><th>WIN</th><th></th></tr>${history.slice(0, 50).map(h => `<tr><td>${h.t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td><td>${h.kind}</td><td>${h.bet ? fmt(h.bet) : '-'}</td><td class="w">${fmt(h.win)}</td><td>${h.note}</td></tr>`).join('')}</table>`
+      ? `<table class="hist"><tr><th>TIME</th><th>TYPE</th><th>BET</th><th>WIN</th><th></th></tr>${history.slice(0, 50).map(h => `<tr><td>${h.t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td><td>${esc(h.kind)}</td><td>${h.bet ? fmt(h.bet) : '-'}</td><td class="w">${fmt(h.win)}</td><td>${esc(h.note)}</td></tr>`).join('')}</table>`
       : '<p class="sub">No spins yet.</p>';
   } else {
     body = `
@@ -606,7 +635,11 @@ function menu(tab: 'rules' | 'history' | 'settings' = 'rules') {
   if (tab === 'settings') {
     $('sndT').onclick = () => { sound.enabled = !sound.enabled; refreshButtons(); menu('settings'); };
     $('trbT').onclick = () => { turbo = !turbo; refreshButtons(); menu('settings'); };
-    $('topUp').onclick = async () => { const s = await backend.topUp(); setBalance(s.balance); toast('Demo credits reset'); closeModal(); };
+    $('topUp').onclick = async () => {
+      if (busy || document.body.classList.contains('fs-mode')) { toast('Finish the current spin first'); return; }
+      try { const s = await backend.topUp(); setBalance(s.balance); toast('Demo credits reset'); closeModal(); }
+      catch (e) { toast((e as Error).message); }
+    };
   }
 }
 
@@ -641,11 +674,20 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Space' && $('modal').classList.contains('hidden')) { e.preventDefault(); void doSpin(); }
 });
 
-// expose a tiny hook for automated UI tests
-(window as unknown as { __ls: object }).__ls = { get busy() { return busy; }, get balance() { return balance; } };
+// expose a tiny read-only hook for automated UI tests (dev builds only)
+if (import.meta.env.DEV) {
+  (window as unknown as { __ls: object }).__ls = { get busy() { return busy; }, get balance() { return balance; } };
+}
 
 async function start() {
-  const s = await backend.init();
+  if (picked.rejectedServer) toast('That game server is not allowed. Playing the built-in demo instead.', 4000);
+  let s;
+  try {
+    s = await backend.init();
+  } catch (e) {
+    openModal(`<h2>Game unavailable</h2><p class="sub">${esc((e as Error).message)}. Reload the page to try again.</p>`, false);
+    return;
+  }
   setBalance(s.balance);
   setEmber(s.ember, s.emberCharged);
   refreshButtons();
