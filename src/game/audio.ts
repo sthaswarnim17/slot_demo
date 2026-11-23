@@ -55,5 +55,6 @@ export class Sound {
   scatter() { this.chime(392, 0, 0.4); this.chime(523, 0.12, 0.35); this.chime(784, 0.24, 0.3); }
   ember() { this.tone(220, 0.5, 'sawtooth', 0.08, 0, 3); this.chime(1175, 0.2, 0.3); }
   bigWin() { [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.chime(f, i * 0.11, 0.3)); }
+  tease() { this.tone(260, 0.7, 'sine', 0.14, 0, 2); this.tone(390, 0.7, 'triangle', 0.06, 0.05, 2); }
   click() { this.tone(1200, 0.04, 'square', 0.04); }
 }
