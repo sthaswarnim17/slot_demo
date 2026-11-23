@@ -1,0 +1,8 @@
+{
+  "appId": "com.lanternsummit.demo",
+  "appName": "Lantern Summit",
+  "webDir": "dist",
+  "backgroundColor": "#0b1030",
+  "ios": { "contentInset": "never" },
+  "android": { "backgroundColor": "#0b1030" }
+}
